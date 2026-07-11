@@ -5,10 +5,17 @@ Fetches AI-related news and sends a daily digest email via Gmail SMTP.
 
 Usage:
   python3 ai-news-email.py --to RECIPIENT@gmail.com
+  python3 ai-news-email.py --to RECIPIENT@gmail.com --dry-run
 
 Requires env vars:
   GMAIL_SENDER   - Gmail address (sender)
   GMAIL_APP_PW   - Gmail App Password (16-char, no spaces)
+
+Options:
+  --limit-hn N        Max HN items (default: 12)
+  --limit-tc N        Max TechCrunch items (default: 8)
+  --limit-arxiv N     Max arXiv papers (default: 6)
+  --dry-run           Save HTML to preview.html instead of sending
 """
 
 import os
@@ -330,7 +337,8 @@ def main():
     parser.add_argument("--to", required=True, help="Recipient email address")
     parser.add_argument("--limit-hn", type=int, default=12, help="Max HN items")
     parser.add_argument("--limit-tc", type=int, default=8, help="Max TechCrunch items")
-    parser.add_argument("--limit-arxiv", type=int, default=6, help="Max arXiv items")
+    parser.add_argument("--limit-arxiv", type=int, default=6, help="Max arXiv papers")
+    parser.add_argument("--dry-run", action="store_true", help="Save HTML to preview.html instead of sending")
     args = parser.parse_args()
 
     sender = os.environ.get("GMAIL_SENDER")
@@ -357,6 +365,14 @@ def main():
     # Build email
     html = build_email_content(hn_items, tc_items, arxiv_items)
     subject = f"🤖 AI Daily Digest — {today}"
+
+    if args.dry_run:
+        preview_path = "preview.html"
+        with open(preview_path, "w", encoding="utf-8") as f:
+            f.write(html)
+        print(f"✅ Dry run complete. Saved preview to: {preview_path}")
+        print(f"   Open in browser: file://{os.path.abspath(preview_path)}")
+        return
 
     # Send
     try:

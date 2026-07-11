@@ -44,16 +44,21 @@ export GMAIL_SENDER=your-email@gmail.com
 export GMAIL_APP_PW=your16charapppassword
 ```
 
-### Run Manually
+## Run Manually
 
 ```bash
+# Normal mode — send email
 python3 ai-news-email.py --to recipient@gmail.com
+
+# Preview mode — generate HTML and save to preview.html
+python3 ai-news-email.py --to recipient@gmail.com --dry-run
 ```
 
 Optional flags:
-- `--limit-hn N` — Max Hacker News items (default: 15)
-- `--limit-tc N` — Max TechCrunch items (default: 10)
-- `--limit-arxiv N` — Max arXiv papers (default: 8)
+- `--limit-hn N` — Max Hacker News items (default: 12)
+- `--limit-tc N` — Max TechCrunch items (default: 8)
+- `--limit-arxiv N` — Max arXiv papers (default: 6)
+- `--dry-run` — Save HTML to `preview.html` instead of sending (useful for testing / previewing in browser)
 
 ### Schedule with Cron (Hermes)
 

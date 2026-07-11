@@ -75,7 +75,7 @@ This runs at UTC 12:00 = US Central 7:00 AM (CDT).
 ```
 ai-news-email.py
   ├── fetch_hackernews_ai()   → Algolia HN search API
-  ├── fetch_techmeme_ai()     → TechCrunch AI RSS feed
+  ├── fetch_techcrunch_ai()   → TechCrunch AI RSS feed
   ├── fetch_arxiv_ai()        → arXiv API (cs.AI category)
   ├── build_email_content()   → HTML email with dark theme
   └── send_email()            → Gmail SMTP (port 587, TLS)

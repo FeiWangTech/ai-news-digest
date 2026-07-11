@@ -102,9 +102,10 @@ Version 1 is successful when:
 
 ### Frontend
 
+- Next.js
 - React
 - TypeScript
-- Vite
+- Next.js App Router
 
 ### Backend
 
@@ -126,6 +127,12 @@ Version 1 is successful when:
 - Automated tests
 - GitHub Actions
 - Daily scheduler or cron job
+
+### Application Responsibilities
+
+The Next.js frontend is responsible for the user interface, page routing, user input, digest preview, and communication with the backend.
+
+The FastAPI backend is responsible for content ingestion, AI processing, digest generation, HTML email creation, Gmail SMTP delivery, and scheduled execution.
 
 ## 8. Future Version 2 Scope
 

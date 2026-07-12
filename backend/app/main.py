@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from .schemas import DigestPreviewRequest, DigestPreviewResponse
 from .sources.hackernews import fetch_hackernews_ai
 from .sources.techcrunch import fetch_techcrunch_ai
+from .sources.arxiv import fetch_arxiv_ai
 
 app = FastAPI(title="AI Daily Digest API", version="1.0.0")
 
@@ -48,15 +49,19 @@ async def preview_digest(request: DigestPreviewRequest):
         else:
             tc_live_succeeded = True
     if request.sources.get("arxiv", False):
-        limit = min(max(request.limits.get("arxiv", 3) if request.limits else 3, 1), 20)
-        items.extend(
-            {
-                "source": "arXiv cs.AI",
-                "title": f"Mock arXiv paper {i}",
-                "url": "https://example.com/arxiv",
-            }
-            for i in range(1, limit + 1)
+        arxiv_limit = min(
+            max(request.limits.get("arxiv", 3) if request.limits else 3, 1), 20
         )
+        try:
+            arxiv_items, arxiv_error = fetch_arxiv_ai(limit=arxiv_limit)
+        except Exception as exc:
+            arxiv_items = []
+            arxiv_error = f"arXiv fetch failed: {exc}"
+        items.extend(arxiv_items[:arxiv_limit])
+        if arxiv_error:
+            warnings.append(arxiv_error)
+        else:
+            live_sources.append("arXiv cs.AI")
     tip = None
     if request.sources.get("tip", False):
         tip = "Mock AI Engineer Lifecycle Tip: use pydantic models."

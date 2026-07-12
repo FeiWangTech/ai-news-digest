@@ -80,6 +80,9 @@ def test_preview_hn_fetch_failure():
     with patch(
         "backend.app.main.fetch_hackernews_ai",
         return_value=([], "Hacker News fetch failed: boom"),
+    ), patch(
+        "backend.app.main.fetch_techcrunch_ai",
+        return_value=([], "TechCrunch fetch failed: boom"),
     ):
         response = client.post("/api/digest/preview", json={})
 
@@ -87,13 +90,19 @@ def test_preview_hn_fetch_failure():
     data = response.json()
     assert data["mock"] is True
     assert "Preview data is mocked" in data["message"]
-    assert data["warnings"] == ["Hacker News fetch failed: boom"]
+    assert data["warnings"] == [
+        "Hacker News fetch failed: boom",
+        "TechCrunch fetch failed: boom",
+    ]
 
 
 def test_preview_hn_fetch_raises_exception():
     with patch(
         "backend.app.main.fetch_hackernews_ai",
         side_effect=RuntimeError("boom"),
+    ), patch(
+        "backend.app.main.fetch_techcrunch_ai",
+        return_value=([], "TechCrunch fetch failed: boom"),
     ):
         response = client.post("/api/digest/preview", json={})
 
@@ -101,7 +110,7 @@ def test_preview_hn_fetch_raises_exception():
     data = response.json()
     assert data["mock"] is True
     assert "Preview data is mocked" in data["message"]
-    assert data["warnings"] == ["Hacker News fetch failed: boom"]
+    assert data["warnings"] == ["Hacker News fetch failed: boom", "TechCrunch fetch failed: boom"]
 
 
 def test_preview_hn_disabled():
@@ -142,6 +151,152 @@ def test_preview_invalid_limit_key():
         json={"limits": {"youtube": 5}},
     )
     assert response.status_code == 422
+
+
+def test_preview_tc_enabled_with_hn():
+    mock_hn_items = [
+        {
+            "source": "Hacker News",
+            "title": "HN Story",
+            "url": "https://example.com/hn",
+            "score": 10,
+        },
+    ]
+    mock_tc_items = [
+        {
+            "source": "TechCrunch AI",
+            "title": "TC Article",
+            "url": "https://techcrunch.com/ai",
+            "score": 0,
+        },
+    ]
+    with patch(
+        "backend.app.main.fetch_hackernews_ai",
+        return_value=(mock_hn_items, None),
+    ), patch(
+        "backend.app.main.fetch_techcrunch_ai",
+        return_value=(mock_tc_items, None),
+    ):
+        response = client.post("/api/digest/preview", json={})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["mock"] is False
+    assert data["warnings"] is None
+    assert "live data" in data["message"]
+    sources = [item["source"] for item in data["items"]]
+    assert "Hacker News" in sources
+    assert "TechCrunch AI" in sources
+
+
+def test_preview_tc_limit_respected():
+    mock_tc_items = [
+        {
+            "source": "TechCrunch AI",
+            "title": f"TC {i}",
+            "url": f"https://techcrunch.com/{i}",
+            "score": 0,
+        }
+        for i in range(5)
+    ]
+    with patch(
+        "backend.app.main.fetch_hackernews_ai",
+        return_value=([], None),
+    ), patch(
+        "backend.app.main.fetch_techcrunch_ai",
+        return_value=(mock_tc_items, None),
+    ) as mock_tc_fn:
+        response = client.post(
+            "/api/digest/preview",
+            json={
+                "sources": {"hn": False, "techcrunch": True},
+                "limits": {"techcrunch": 2},
+            },
+        )
+
+    assert response.status_code == 200
+    mock_tc_fn.assert_called_once_with(limit=2)
+    tc_items = [item for item in response.json()["items"] if item["source"] == "TechCrunch AI"]
+    assert len(tc_items) == 2
+
+
+def test_preview_tc_fetch_failure():
+    with patch(
+        "backend.app.main.fetch_hackernews_ai",
+        return_value=([], None),
+    ), patch(
+        "backend.app.main.fetch_techcrunch_ai",
+        return_value=([], "TechCrunch fetch failed: boom"),
+    ):
+        response = client.post(
+            "/api/digest/preview",
+            json={"sources": {"hn": False, "techcrunch": True}},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["mock"] is True
+    assert data["warnings"] == ["TechCrunch fetch failed: boom"]
+    assert "Preview data is mocked" in data["message"]
+
+
+def test_preview_tc_disabled():
+    with patch("backend.app.main.fetch_techcrunch_ai") as mock_tc_fn:
+        response = client.post(
+            "/api/digest/preview",
+            json={"sources": {"hn": False, "techcrunch": False}},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["mock"] is True
+    assert all(item["source"] != "TechCrunch AI" for item in data["items"])
+    assert data["warnings"] is None
+    mock_tc_fn.assert_not_called()
+
+
+def test_preview_hn_succeeds_tc_fails():
+    with patch(
+        "backend.app.main.fetch_hackernews_ai",
+        return_value=(
+            [{"source": "Hacker News", "title": "HN OK", "url": "https://example.com/hn", "score": 10}],
+            None,
+        ),
+    ), patch(
+        "backend.app.main.fetch_techcrunch_ai",
+        return_value=([], "TechCrunch fetch failed: boom"),
+    ):
+        response = client.post("/api/digest/preview", json={})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["mock"] is False
+    assert data["warnings"] == ["TechCrunch fetch failed: boom"]
+    assert "live data" in data["message"]
+    assert any(item["source"] == "Hacker News" for item in data["items"])
+    assert not any(item["source"] == "TechCrunch AI" for item in data["items"])
+
+
+def test_preview_tc_succeeds_hn_fails():
+    with patch(
+        "backend.app.main.fetch_hackernews_ai",
+        return_value=([], "Hacker News fetch failed: boom"),
+    ), patch(
+        "backend.app.main.fetch_techcrunch_ai",
+        return_value=(
+            [{"source": "TechCrunch AI", "title": "TC OK", "url": "https://techcrunch.com/ok", "score": 0}],
+            None,
+        ),
+    ):
+        response = client.post("/api/digest/preview", json={})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["mock"] is False
+    assert data["warnings"] == ["Hacker News fetch failed: boom"]
+    assert "live data" in data["message"]
+    assert any(item["source"] == "TechCrunch AI" for item in data["items"])
+    assert not any(item["source"] == "Hacker News" for item in data["items"])
 
 
 def test_health_endpoint_still_works():

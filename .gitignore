@@ -1,4 +1,16 @@
+# Environment and secrets
 .env
+.env.*
+!.env.example
+
+# Python
+.venv/
 __pycache__/
 *.pyc
+.pytest_cache/
+
+# macOS
 .DS_Store
+
+# Local prototype
+preview.html

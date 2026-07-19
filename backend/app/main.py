@@ -1,6 +1,7 @@
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from .schemas import (
     DigestPreviewRequest,
@@ -16,6 +17,16 @@ from .sources.techcrunch import fetch_techcrunch_ai
 from .sources.arxiv import fetch_arxiv_ai
 
 app = FastAPI(title="AI Daily Digest API", version="1.0.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/api/health")

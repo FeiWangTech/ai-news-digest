@@ -473,3 +473,98 @@ def test_health_endpoint_still_works():
     response = client.get("/api/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_preview_round_robin_order():
+    mock_hn_items = [
+        {"source": "Hacker News", "title": "H0", "url": "https://hn.com/0", "score": 0},
+        {"source": "Hacker News", "title": "H1", "url": "https://hn.com/1", "score": 0},
+    ]
+    mock_tc_items = [
+        {"source": "TechCrunch AI", "title": "T0", "url": "https://tc.com/0", "score": 0},
+        {"source": "TechCrunch AI", "title": "T1", "url": "https://tc.com/1", "score": 0},
+    ]
+    mock_arxiv_items = [
+        {"source": "arXiv cs.AI", "title": "A0", "url": "https://ar.com/0", "score": 0},
+        {"source": "arXiv cs.AI", "title": "A1", "url": "https://ar.com/1", "score": 0},
+    ]
+    with patch(
+        "backend.app.main.fetch_hackernews_ai", return_value=(mock_hn_items, None)
+    ), patch(
+        "backend.app.main.fetch_techcrunch_ai", return_value=(mock_tc_items, None)
+    ), patch(
+        "backend.app.main.fetch_arxiv_ai", return_value=(mock_arxiv_items, None)
+    ):
+        response = client.post("/api/digest/preview", json={})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert [item["title"] for item in data["items"]] == [
+        "H0",
+        "T0",
+        "A0",
+        "H1",
+        "T1",
+        "A1",
+    ]
+
+
+def test_preview_dedup_duplicate_url():
+    mock_hn_items = [
+        {"source": "Hacker News", "title": "HN1", "url": "https://example.com/x", "score": 0},
+    ]
+    mock_tc_items = [
+        {"source": "TechCrunch AI", "title": "TC1", "url": "https://EXAMPLE.com/x", "score": 0},
+    ]
+    with patch(
+        "backend.app.main.fetch_hackernews_ai", return_value=(mock_hn_items, None)
+    ), patch(
+        "backend.app.main.fetch_techcrunch_ai", return_value=(mock_tc_items, None)
+    ), patch(
+        "backend.app.main.fetch_arxiv_ai", return_value=([], None)
+    ):
+        response = client.post("/api/digest/preview", json={})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["items"]) == 1
+    assert data["items"][0]["title"] == "HN1"
+
+
+def test_preview_dedup_duplicate_title():
+    mock_hn_items = [
+        {"source": "Hacker News", "title": "Same Title", "url": "https://hn.com/1", "score": 0},
+    ]
+    mock_tc_items = [
+        {"source": "TechCrunch AI", "title": "same title", "url": "https://tc.com/1", "score": 0},
+    ]
+    with patch(
+        "backend.app.main.fetch_hackernews_ai", return_value=(mock_hn_items, None)
+    ), patch(
+        "backend.app.main.fetch_techcrunch_ai", return_value=(mock_tc_items, None)
+    ), patch(
+        "backend.app.main.fetch_arxiv_ai", return_value=([], None)
+    ):
+        response = client.post("/api/digest/preview", json={})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["items"]) == 1
+    assert data["items"][0]["source"] == "Hacker News"
+
+
+def test_preview_all_sources_return_empty():
+    with patch(
+        "backend.app.main.fetch_hackernews_ai", return_value=([], None)
+    ), patch(
+        "backend.app.main.fetch_techcrunch_ai", return_value=([], None)
+    ), patch(
+        "backend.app.main.fetch_arxiv_ai", return_value=([], None)
+    ):
+        response = client.post("/api/digest/preview", json={})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["items"] == []
+    assert data["mock"] is False
+    assert "live data" in data["message"]

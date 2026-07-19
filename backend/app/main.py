@@ -1,6 +1,9 @@
+from typing import Any
+
 from fastapi import FastAPI
 
 from .schemas import DigestPreviewRequest, DigestPreviewResponse
+from .services.digest import aggregate_sources
 from .sources.hackernews import fetch_hackernews_ai
 from .sources.techcrunch import fetch_techcrunch_ai
 from .sources.arxiv import fetch_arxiv_ai
@@ -15,7 +18,9 @@ async def api_health():
 
 @app.post("/api/digest/preview", response_model=DigestPreviewResponse)
 async def preview_digest(request: DigestPreviewRequest):
-    items = []
+    hn_items_list: list[dict[str, Any]] = []
+    tc_items_list: list[dict[str, Any]] = []
+    arxiv_items_list: list[dict[str, Any]] = []
     warnings = []
     live = False
     live_sources: list[str] = []
@@ -27,7 +32,7 @@ async def preview_digest(request: DigestPreviewRequest):
         except Exception as exc:
             hn_items = []
             error = f"Hacker News fetch failed: {exc}"
-        items.extend(hn_items[:limit])
+        hn_items_list = list(hn_items[:limit])
         if error:
             warnings.append(error)
         else:
@@ -43,7 +48,7 @@ async def preview_digest(request: DigestPreviewRequest):
         except Exception as exc:
             tc_items = []
             tc_error = f"TechCrunch fetch failed: {exc}"
-        items.extend(tc_items[:tc_limit])
+        tc_items_list = list(tc_items[:tc_limit])
         if tc_error:
             warnings.append(tc_error)
         else:
@@ -57,11 +62,13 @@ async def preview_digest(request: DigestPreviewRequest):
         except Exception as exc:
             arxiv_items = []
             arxiv_error = f"arXiv fetch failed: {exc}"
-        items.extend(arxiv_items[:arxiv_limit])
+        arxiv_items_list = list(arxiv_items[:arxiv_limit])
         if arxiv_error:
             warnings.append(arxiv_error)
         else:
             live_sources.append("arXiv cs.AI")
+
+    items = aggregate_sources(hn_items_list, tc_items_list, arxiv_items_list)
     tip = None
     if request.sources.get("tip", False):
         tip = "Mock AI Engineer Lifecycle Tip: use pydantic models."

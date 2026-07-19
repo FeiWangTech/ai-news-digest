@@ -4,6 +4,7 @@ from fastapi import FastAPI
 
 from .schemas import DigestPreviewRequest, DigestPreviewResponse
 from .services.digest import aggregate_sources
+from .services.email_templates import render_html_digest
 from .sources.hackernews import fetch_hackernews_ai
 from .sources.techcrunch import fetch_techcrunch_ai
 from .sources.arxiv import fetch_arxiv_ai
@@ -96,4 +97,5 @@ async def preview_digest(request: DigestPreviewRequest):
         "sources": request.sources,
         "tip": tip,
         "warnings": warnings or None,
+        "html": render_html_digest(items, tip=tip),
     }

@@ -55,3 +55,36 @@ class DigestPreviewResponse(BaseModel):
     tip: str | None
     warnings: list[str] | None = None
     html: str
+
+
+class DigestSendRequest(DigestPreviewRequest):
+    recipient: str
+
+    @field_validator("recipient")
+    @classmethod
+    def validate_recipient(cls, value: str) -> str:
+        if value is None or not isinstance(value, str):
+            raise ValueError("Recipient email is required")
+        value = value.strip()
+        if not value:
+            raise ValueError("Recipient email is required")
+        if any(c.isspace() for c in value):
+            raise ValueError("Recipient email contains invalid whitespace")
+        if value.count("@") != 1:
+            raise ValueError("Recipient email must contain exactly one @")
+        local, domain = value.split("@")
+        if not local:
+            raise ValueError("Recipient email local part is missing")
+        if not domain:
+            raise ValueError("Recipient email domain is missing")
+        if "." not in domain:
+            raise ValueError("Recipient email domain must contain a dot")
+        if domain.startswith(".") or domain.endswith("."):
+            raise ValueError("Recipient email domain cannot begin or end with a dot")
+        return value
+
+
+class DigestSendResponse(BaseModel):
+    sent: bool
+    message: str
+    warnings: list[str] | None = None

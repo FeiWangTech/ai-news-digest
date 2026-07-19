@@ -96,3 +96,31 @@ def render_html_digest(
         "</body>\n"
         "</html>"
     )
+
+
+def render_plain_digest(
+    items: Sequence[dict[str, Any]],
+    *,
+    tip: str | None = None,
+) -> str:
+    parts = ["AI Daily Digest", "=" * 40]
+    if tip:
+        parts.extend(["", "Tip", tip, "-" * 40])
+
+    for item in items:
+        title = str(item.get("title") or "").strip()
+        source = str(item.get("source") or "").strip()
+        url = str(item.get("url") or "").strip()
+        score = item.get("score")
+        parts.append(f"{title} [{source}]")
+        if _is_safe_url(url):
+            parts.append(f"  {url}")
+        if score is not None:
+            parts.append(f"  Score: {score}")
+        parts.append("")
+
+    if not items:
+        parts.extend(["", "No items available", ""])
+
+    parts.extend(["", "AI News Digest"])
+    return "\n".join(parts)

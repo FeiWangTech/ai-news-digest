@@ -54,3 +54,4 @@ class DigestPreviewResponse(BaseModel):
     sources: dict[str, bool]
     tip: str | None
     warnings: list[str] | None = None
+    html: str
